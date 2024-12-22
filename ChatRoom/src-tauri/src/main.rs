@@ -3,7 +3,6 @@ use std::thread;
 use tauri::Manager;
 use tauri::State;
 use std::sync::Mutex;
-use tauri::Emitter;
 
 struct AppState {
     local_port: Mutex<u16>,
@@ -14,6 +13,12 @@ fn set_local_port(port: u16, state: State<AppState>) -> Result<(), String> {
     let mut local_port = state.local_port.lock().map_err(|e| e.to_string())?;
     *local_port = port;
     Ok(())
+}
+
+#[tauri::command]
+fn get_local_port(state: State<AppState>) -> Result<u16, String> {
+    let local_port = state.local_port.lock().map_err(|e| e.to_string())?;
+    Ok(*local_port)
 }
 
 #[tauri::command]
@@ -29,12 +34,11 @@ fn main() {
         .manage(AppState {
             local_port: Mutex::new(8080),
         })
-        .invoke_handler(tauri::generate_handler![send_message, set_local_port])
+        .invoke_handler(tauri::generate_handler![send_message, set_local_port, get_local_port])
         .setup(|app| {
             let state = app.state::<AppState>();
             let app_handle = app.handle().clone();
 
-            // 获取当前配置的本地端口
             let local_port = {
                 let port = state.local_port.lock().unwrap();
                 *port
