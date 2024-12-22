@@ -15,6 +15,10 @@ cargo run
 # 在ChatRoom目录下
 npm run tauri dev
 ```
+### 显示如下
+![](Snipaste_2024-12-22_21-24-52.png)
+
+![](Snipaste_2024-12-22_21-24-42.png)
 
 
 ## 目的
