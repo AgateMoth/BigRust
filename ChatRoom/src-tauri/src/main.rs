@@ -1,14 +1,47 @@
 use std::net::UdpSocket;
 use std::thread;
+use tauri::Manager;
+use tauri::State;
+use std::sync::Mutex;
 use tauri::Emitter;
 
+struct AppState {
+    local_port: Mutex<u16>,
+}
+
+#[tauri::command]
+fn set_local_port(port: u16, state: State<AppState>) -> Result<(), String> {
+    let mut local_port = state.local_port.lock().map_err(|e| e.to_string())?;
+    *local_port = port;
+    Ok(())
+}
+
+#[tauri::command]
+fn send_message(message: String, target: String, port: u16) -> Result<(), String> {
+    let socket = UdpSocket::bind("0.0.0.0:0").map_err(|e| e.to_string())?;
+    let target_addr = format!("{}:{}", target, port);
+    socket.send_to(message.as_bytes(), target_addr).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 fn main() {
-    let _app = tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![send_message])
+    tauri::Builder::default()
+        .manage(AppState {
+            local_port: Mutex::new(8080),
+        })
+        .invoke_handler(tauri::generate_handler![send_message, set_local_port])
         .setup(|app| {
+            let state = app.state::<AppState>();
             let app_handle = app.handle().clone();
+
+            // 获取当前配置的本地端口
+            let local_port = {
+                let port = state.local_port.lock().unwrap();
+                *port
+            };
+
             thread::spawn(move || {
-                let socket = UdpSocket::bind("0.0.0.0:8080").expect("Failed to bind socket");
+                let socket = UdpSocket::bind(format!("0.0.0.0:{}", local_port)).expect("Failed to bind socket");
                 let mut buf = [0; 1024];
                 loop {
                     match socket.recv_from(&mut buf) {
@@ -20,15 +53,9 @@ fn main() {
                     }
                 }
             });
+
             Ok(())
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
-}
-
-#[tauri::command]
-fn send_message(message: String, target: String, port: u16) {
-    let socket = UdpSocket::bind("0.0.0.0:0").expect("Failed to bind socket");
-    let target_addr = format!("{}:{}", target, port);
-    socket.send_to(message.as_bytes(), target_addr).expect("Failed to send message");
 }
