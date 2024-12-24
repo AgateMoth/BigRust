@@ -7,7 +7,7 @@
 cd ChatRoom
 npm install
 cd src-tauri
-cargo run
+cargo build
 ```
 
 ### 正式启动
