@@ -44,6 +44,7 @@
   import { ref, onMounted } from 'vue';
   import { invoke } from '@tauri-apps/api/core';
   import { listen } from '@tauri-apps/api/event';
+  import { ElMessage } from 'element-plus';
   
   const target = ref('');
   const port = ref(8080);
@@ -56,10 +57,11 @@
   const setLocalPort = async () => {
     if (localPort.value >= 1 && localPort.value <= 65535) {
       try {
-        await invoke('set_local_port', {local: localPort.value});
+        await invoke('set_local_port', {port: localPort.value});
         console.log(`本地端口已设置为: ${localPort.value}`);
         currentPort.value = localPort.value;
-        window.location.reload();
+        // window.location.reload();
+        alert('设置成功，请重新启动应用');
       } catch (error) {
         console.error('设置本地端口失败:', error);
       }
