@@ -35,12 +35,14 @@
       <div class="messages-section">
         <div v-if="receivedMessages.length" class="messages-list">
           <transition-group name="message" tag="div">
-            <div
-              v-for="(msg, index) in receivedMessages"
-              :key="index"
-              :class="['message-item', msg.username === store.username ? 'self' : 'others']"
-            >
-              <strong>{{ msg.username }}:</strong> {{ msg.content }}
+            <div class=" message-all">
+              <div
+                v-for="(msg, index) in receivedMessages"
+                :key="index"
+                :class="['message-item',msg.username === store.username ? 'self' : 'others']"
+              >
+                <strong>{{ msg.username }}:</strong> {{ msg.content }}
+              </div>
             </div>
           </transition-group>
         </div>
@@ -122,7 +124,7 @@ const send = async () => {
     }
   } else {
     ElMessage({
-      message: '请在配置中填写所有信息或为写任何消息',
+      message: '请在配置中填写所有信息或没有任何消息',
       type: 'warning',
     });
   }
@@ -255,6 +257,11 @@ onMounted(() => {
 }
 
 .messages-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.message-all {
   display: flex;
   flex-direction: column;
 }
