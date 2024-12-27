@@ -16,6 +16,7 @@ use serde_json;
 use mysql::{Pool, PooledConn, params};
 
 
+
 struct AppState {
     local_port: Mutex<u16>,
 }
@@ -97,7 +98,7 @@ fn find_in_mysql(
     // 连接到 MySQL 数据库
     let mysqlurl=format!("mysql://{}:{}@{}:{}/{}",mysqlname,mysqlpassword,mysqlhost,mysqlport,mysqldb);
     let pool = Pool::new(mysqlurl.as_str()).expect("Failed to create pool"); 
-    let mut conn = pool.get_conn().expect("Failed to get connection from pool");
+    let conn = pool.get_conn().expect("Failed to get connection from pool");
     let rows = query_map_mysql(conn);
 
     for row in rows {
@@ -119,7 +120,7 @@ fn createuser_in_mysql(
     password: &str) -> Result<(), String> {
     let mysqlurl=format!("mysql://{}:{}@{}:{}/{}",mysqlname,mysqlpassword,mysqlhost,mysqlport,mysqldb);
     let pool = Pool::new(mysqlurl.as_str()).expect("Failed to create pool"); 
-    let mut conn = pool.get_conn().expect("Failed to get connection from pool");
+    let conn = pool.get_conn().expect("Failed to get connection from pool");
     insert_mysql(conn, username, password);
     Ok(())
 }
@@ -245,7 +246,11 @@ fn main() {
         .manage(AppState {
             local_port: Mutex::new(8080),
         })
-        .invoke_handler(tauri::generate_handler![send_message, set_local_port, get_local_port])
+        .invoke_handler(tauri::generate_handler![send_message, 
+            set_local_port, 
+            get_local_port,
+            find_in_mysql,
+            createuser_in_mysql])
         .setup(|app| {
             let state = app.state::<AppState>();
             let app_handle = app.handle().clone();

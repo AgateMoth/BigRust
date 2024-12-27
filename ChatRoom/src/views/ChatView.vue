@@ -1,4 +1,3 @@
-<!-- filepath: /src/views/ChatView.vue -->
 <template>
     <div class="container">
       <h1 class="title">聊天室</h1>
@@ -44,7 +43,7 @@
   import { ref, onMounted } from 'vue';
   import { invoke } from '@tauri-apps/api/core';
   import { listen } from '@tauri-apps/api/event';
-  import { ElMessage } from 'element-plus';
+  // import { ElMessage } from 'element-plus';
   
   const target = ref('');
   const port = ref(8080);
