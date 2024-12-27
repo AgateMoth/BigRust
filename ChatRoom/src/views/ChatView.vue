@@ -111,6 +111,11 @@ const send = async () => {
         target: target.value, 
         port: port.value 
       });
+      // 显示自己发送的消息
+      receivedMessages.value.push({
+        username: store.username,
+        content: message.value
+      });
       message.value = '';
     } catch (error) {
       console.error('发送消息失败:', error);
