@@ -10,7 +10,7 @@
           <div v-if="showConfig" class="config-menu">
             <div class="config-section">
               <div class="config-group">
-                <label for="localPort">本地监听端口:</label>
+                <label for="localPort">设置监听端口:</label>
                 <input id="localPort" v-model="localPort" type="number" min="1" max="65535" />
                 <button @click="setLocalPort">设置端口</button>
               </div>
