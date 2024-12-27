@@ -1,4 +1,3 @@
-<!-- filepath: /src/App.vue -->
 <template>
   <div>
     <!-- 如果未登录，就只显示登录/注册页面 -->
