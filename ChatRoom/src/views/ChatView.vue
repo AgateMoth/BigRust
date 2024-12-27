@@ -38,7 +38,7 @@
       <h2>收到的消息</h2>
       <div v-if="receivedMessages.length" class="messages-list">
         <div v-for="(msg, index) in receivedMessages" :key="index" class="message-item">
-          {{ msg }}
+          <strong>{{ msg.username }}:</strong> {{ msg.content }}
         </div>
       </div>
       <div v-else class="no-messages">没有收到消息</div>
@@ -50,12 +50,18 @@
 import { ref, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { store } from '../utils/store';
+
+interface ReceivedMessage {
+  username: string;
+  content: string;
+}
 
 const showConfig = ref(false);
 const target = ref('');
 const port = ref(8080);
 const message = ref('');
-const receivedMessages = ref<string[]>([]);
+const receivedMessages = ref<ReceivedMessage[]>([]);
 const localPort = ref(8080);
 const currentPort = ref(8080);
 
@@ -85,6 +91,7 @@ const send = async () => {
   if (target.value && port.value && message.value) {
     try {
       await invoke('send_message', { 
+        username: store.username, // 发送用户名
         message: message.value, 
         target: target.value, 
         port: port.value 
@@ -93,6 +100,8 @@ const send = async () => {
     } catch (error) {
       console.error('发送消息失败:', error);
     }
+  } else {
+    alert('请填写所有字段，包括用户名');
   }
 };
 
@@ -111,7 +120,12 @@ onMounted(() => {
   fetchCurrentPort();
 
   listen<string>('receive_message', (event) => {
-    receivedMessages.value.push(event.payload);
+    try {
+      const msg: ReceivedMessage = JSON.parse(event.payload);
+      receivedMessages.value.push(msg);
+    } catch (e) {
+      console.error('解析消息失败:', e);
+    }
   }).catch((error) => {
     console.error('监听消息失败:', error);
   });
@@ -249,11 +263,12 @@ onMounted(() => {
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: background-color 0.3s, transform 0.3s;
 }
 
 .send-section button:hover {
   background-color: #10202b;
+  transform: translateY(-2px);
 }
 
 .messages-section {
@@ -280,11 +295,12 @@ onMounted(() => {
   border-radius: 6px;
   margin-bottom: 10px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  transition: background-color 0.3s;
+  transition: background-color 0.3s, transform 0.3s;
 }
 
 .message-item:hover {
   background-color: #cdeefb;
+  transform: translateX(5px);
 }
 
 .no-messages {
