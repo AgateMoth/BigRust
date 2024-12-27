@@ -30,7 +30,10 @@
 import { invoke } from '@tauri-apps/api/core';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { store } from '../utils/store';
+import { store,mysql } from '../utils/store';
+import { ElMessage } from 'element-plus';
+import 'element-plus/dist/index.css';
+
 
 const router = useRouter();
 
@@ -51,31 +54,37 @@ function toggleRegister() {
 async function handleSubmit() {
   if (isRegister.value) {
     if (password.value !== confirmPassword.value) {
-      alert('两次输入的密码不一致');
+      ElMessage({
+        message: '两次输入的密码不一致',
+        type: 'error',
+      });
       return;
     }
     try {
       await invoke('createuser_in_mysql', { 
-        mysqlname: 'root',
-        mysqlpassword: '123',
-        mysqlhost: '127.0.0.1',
-        mysqlport: '3306',
-        mysqldb: 'userdata',
+        mysqlname: mysql.mysqlname,
+        mysqlpassword: mysql.mysqlpassword,
+        mysqlhost: mysql.mysqlhost,
+        mysqlport: mysql.mysqlport,
+        mysqldb: mysql.mysqldb,
         username: username.value, 
         password: password.value 
       });
-      alert('注册成功');
+      ElMessage({
+        message: '注册成功',
+        type: 'success',
+      });
     } catch (error) {
       console.error('注册失败', error);
     }
   } else {
     try {
       const result = await invoke('find_in_mysql', { 
-        mysqlname: 'root',
-        mysqlpassword: '123',
-        mysqlhost: '127.0.0.1',
-        mysqlport: '3306',
-        mysqldb: 'userdata',
+        mysqlname: mysql.mysqlname,
+        mysqlpassword: mysql.mysqlpassword,
+        mysqlhost: mysql.mysqlhost,
+        mysqlport: mysql.mysqlport,
+        mysqldb: mysql.mysqldb,
         username: username.value,
         password: password.value 
       }) as boolean;
@@ -84,7 +93,10 @@ async function handleSubmit() {
         store.username = username.value; // 设置用户名
         router.push('/home');
       } else {
-        alert('登录失败，请检查用户名或密码');
+        ElMessage({
+          message: '用户名或密码错误',
+          type: 'error',
+        });
       }
     } catch (error) {
       console.error('登录失败', error);
@@ -107,9 +119,10 @@ function resetForm() {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
+  height: 98vh;
   background-color: #DFD0B8;
   transition: background-color 0.5s ease;
+  overflow-y: hidden;
 }
 
 .form-container {

@@ -42,9 +42,10 @@ import RegisterView from './views/RegisterView.vue';
 
 .main-container {
   display: flex;
-  height: 100vh;
+  height: 98vh;
   background-color: #DFD0B8;
   animation: backgroundFade 1s ease-in-out;
+  overflow-y: hidden;
 }
 
 /* 侧边栏样式 */

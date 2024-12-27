@@ -10,11 +10,11 @@
           <div v-if="showConfig" class="config-menu">
             <div class="config-section">
               <div class="config-group">
-                <label for="localPort">本地端口:</label>
+                <label for="localPort">本地监听端口:</label>
                 <input id="localPort" v-model="localPort" type="number" min="1" max="65535" />
                 <button @click="setLocalPort">设置端口</button>
               </div>
-              <p class="current-port">当前端口: {{ currentPort }}</p>
+              <p class="current-port">当前监听端口: {{ currentPort }}</p>
             </div>
             
             <div class="config-section">
@@ -61,6 +61,8 @@ import { ref, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { store } from '../utils/store';
+import { ElMessage } from 'element-plus';
+import 'element-plus/dist/index.css';
 
 interface ReceivedMessage {
   username: string;
@@ -87,7 +89,10 @@ const setLocalPort = async () => {
       await invoke('set_local_port', { port: localPort.value });
       console.log(`本地端口已设置为: ${localPort.value}`);
       currentPort.value = localPort.value;
-      alert('设置成功，请重新启动应用');
+      ElMessage({
+        message: '设置成功，请重新启动应用',
+        type: 'success',
+      });
     } catch (error) {
       console.error('设置本地端口失败:', error);
     }
@@ -111,7 +116,10 @@ const send = async () => {
       console.error('发送消息失败:', error);
     }
   } else {
-    alert('请填写所有字段，包括用户名');
+    ElMessage({
+      message: '请在配置中填写所有信息或为写任何消息',
+      type: 'warning',
+    });
   }
 };
 
@@ -144,7 +152,7 @@ onMounted(() => {
 
 <style scoped>
 .container {
-  height: 100vh;
+  height: 96vh;
   overflow: hidden; 
   background-color: #F5EFE7;
   display: flex;
