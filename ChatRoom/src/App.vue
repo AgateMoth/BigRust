@@ -34,6 +34,12 @@ import RegisterView from './views/RegisterView.vue';
 </script>
 
 <style scoped>
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
 .main-container {
   display: flex;
   height: 100vh;
@@ -43,7 +49,7 @@ import RegisterView from './views/RegisterView.vue';
 
 /* 侧边栏样式 */
 .sidebar {
-  width: 250px;
+  flex: 1;
   background-color: #153448;
   color: #DFD0B8;
   display: flex;
@@ -117,9 +123,9 @@ import RegisterView from './views/RegisterView.vue';
 
 /* 内容区域 */
 .content {
-  flex: 1;
+  flex: 6;
   padding: 20px;
-  overflow-y: auto;
+  overflow-y: hidden;
 }
 
 /* 页面切换淡入淡出效果 */

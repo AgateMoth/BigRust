@@ -2,46 +2,56 @@
   <div class="container">
     <h1 class="title">聊天室</h1>
     
-    <div class="config-dropdown">
-      <button @click="toggleConfig" class="dropdown-button">配置设置</button>
-      <transition name="fade">
-        <div v-if="showConfig" class="config-menu">
-          <div class="config-section">
-            <div class="config-group">
-              <label for="localPort">本地端口:</label>
-              <input id="localPort" v-model="localPort" type="number" min="1" max="65535" />
-              <button @click="setLocalPort">设置端口</button>
+    <div class="chat-layout">
+      <!-- 配置设置区域 -->
+      <div class="config-dropdown">
+        <button @click="toggleConfig" class="dropdown-button">配置设置</button>
+        <transition name="fade">
+          <div v-if="showConfig" class="config-menu">
+            <div class="config-section">
+              <div class="config-group">
+                <label for="localPort">本地端口:</label>
+                <input id="localPort" v-model="localPort" type="number" min="1" max="65535" />
+                <button @click="setLocalPort">设置端口</button>
+              </div>
+              <p class="current-port">当前端口: {{ currentPort }}</p>
             </div>
-            <p class="current-port">当前端口: {{ currentPort }}</p>
+            
+            <div class="config-section">
+              <div class="config-group">
+                <label for="target">目标地址:</label>
+                <input id="target" v-model="target" type="text" placeholder="例如: 127.0.0.1" />
+              </div>
+              <div class="config-group">
+                <label for="port">目标端口:</label>
+                <input id="port" v-model="port" type="number" min="1" max="65535" />
+              </div>
+            </div>
           </div>
-          
-          <div class="config-section">
-            <div class="config-group">
-              <label for="target">目标地址:</label>
-              <input id="target" v-model="target" type="text" placeholder="例如: 127.0.0.1" />
-            </div>
-            <div class="config-group">
-              <label for="port">目标端口:</label>
-              <input id="port" v-model="port" type="number" min="1" max="65535" />
-            </div>
-          </div>
-        </div>
-      </transition>
-    </div>
-    
-    <div class="send-section">
-      <textarea v-model="message" placeholder="输入消息..."></textarea>
-      <button @click="send">发送</button>
-    </div>
-    
-    <div class="messages-section">
-      <h2>收到的消息</h2>
-      <div v-if="receivedMessages.length" class="messages-list">
-        <div v-for="(msg, index) in receivedMessages" :key="index" class="message-item">
-          <strong>{{ msg.username }}:</strong> {{ msg.content }}
-        </div>
+        </transition>
       </div>
-      <div v-else class="no-messages">没有收到消息</div>
+      
+      <!-- 收到的消息区域 -->
+      <div class="messages-section">
+        <div v-if="receivedMessages.length" class="messages-list">
+          <transition-group name="message" tag="div">
+            <div
+              v-for="(msg, index) in receivedMessages"
+              :key="index"
+              :class="['message-item', msg.username === store.username ? 'self' : 'others']"
+            >
+              <strong>{{ msg.username }}:</strong> {{ msg.content }}
+            </div>
+          </transition-group>
+        </div>
+        <div v-else class="no-messages">没有收到消息</div>
+      </div>
+      
+      <!-- 发送消息区域 -->
+      <div class="send-section">
+        <textarea v-model="message" placeholder="输入消息..."></textarea>
+        <button @click="send">发送</button>
+      </div>
     </div>
   </div>
 </template>
@@ -133,59 +143,60 @@ onMounted(() => {
 </script>
 
 <style scoped>
-:root {
-  --color1: #153448;
-  --color2: #3C5B6F;
-  --color3: #948979;
-  --color4: #DFD0B8;
+.container {
+  height: 100vh;
+  overflow: hidden; 
+  background-color: #F5EFE7;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: Arial, sans-serif;
+  color: #213555;
 }
 
-.container {
-  max-width: 900px;
-  margin: 20px auto;
-  padding: 25px;
-  background-color: var(--color4);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-radius: 10px;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  animation: fadeIn 1s ease-in;
-}
 
 .title {
-  text-align: center;
-  color: var(--color1);
-  margin-bottom: 30px;
-  animation: slideDown 1s ease-out;
+  color: #3E5879;
+  margin-top: 20px;
+}
+
+.chat-layout {
+  flex: 1;
+  width: 90%;
+  max-width: 800px;
+  margin: 20px;
+  display: flex;
+  flex-direction: column;
+  background-color: #D8C4B6;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  overflow: hidden; 
 }
 
 .config-dropdown {
-  margin-bottom: 25px;
+  position: relative;
+  margin-bottom: 20px;
 }
 
 .dropdown-button {
-  background-color: var(--color2);
-  color: white;
-  padding: 10px 20px;
+  background-color: #3E5879;
+  color: #F5EFE7;
   border: none;
-  border-radius: 4px;
+  padding: 10px 20px;
+  border-radius: 5px;
   cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-.dropdown-button:hover {
-  background-color: var(--color3);
 }
 
 .config-menu {
-  background-color: var(--color4);
-  padding: 15px;
-  border: 1px solid var(--color2);
-  border-radius: 8px;
-  animation: fadeIn 0.5s ease-in;
-}
-
-.config-section {
-  margin-bottom: 15px;
+  position: absolute;
+  top: 40px;
+  left: 0;
+  background-color: #FFFFFF;
+  border: 1px solid #213555;
+  border-radius: 5px;
+  padding: 10px;
+  z-index: 100;
 }
 
 .config-group {
@@ -195,135 +206,93 @@ onMounted(() => {
 }
 
 .config-group label {
-  width: 100px;
-  font-weight: bold;
-  color: var(--color1);
+  margin-right: 10px;
+  color: #213555;
 }
 
 .config-group input {
   flex: 1;
-  padding: 8px 12px;
-  border: 1px solid #bdc3c7;
-  border-radius: 4px;
-  margin-right: 10px;
-  transition: border-color 0.3s;
-}
-
-.config-group input:focus {
-  border-color: var(--color2);
-  outline: none;
+  padding: 5px;
+  border: 1px solid #3E5879;
+  border-radius: 3px;
 }
 
 .config-group button {
-  padding: 8px 16px;
-  background-color: var(--color2);
-  color: white;
+  margin-left: 10px;
+  background-color: #3E5879;
+  color: #F5EFE7;
   border: none;
-  border-radius: 4px;
+  padding: 5px 10px;
+  border-radius: 3px;
   cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-.config-group button:hover {
-  background-color: var(--color3);
 }
 
 .current-port {
-  text-align: right;
-  font-style: italic;
-  color: var(--color3);
-}
-
-.send-section {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 25px;
-}
-
-.send-section textarea {
-  resize: none;
-  height: 120px;
-  padding: 12px;
-  border: 1px solid #bdc3c7;
-  border-radius: 4px;
-  margin-bottom: 10px;
-  transition: border-color 0.3s;
-}
-
-.send-section textarea:focus {
-  border-color: var(--color1);
-  outline: none;
-}
-
-.send-section button {
-  align-self: flex-end;
-  padding: 10px 20px;
-  background-color: var(--color1);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.3s, transform 0.3s;
-}
-
-.send-section button:hover {
-  background-color: #10202b;
-  transform: translateY(-2px);
+  color: #213555;
 }
 
 .messages-section {
-  padding: 15px;
-  border: 1px solid #ecf0f1;
-  border-radius: 8px;
-  background-color: #f7f9fc;
-}
-
-.messages-section h2 {
-  margin-bottom: 15px;
-  color: var(--color1);
-  text-align: center;
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid #3E5879;
+  border-radius: 5px;
+  padding: 10px;
+  background-color: #FFFFFF;
+  margin-bottom: 20px;
 }
 
 .messages-list {
-  max-height: 300px;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .message-item {
-  background-color: #dff9fb;
-  padding: 10px 15px;
-  border-radius: 6px;
-  margin-bottom: 10px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  transition: background-color 0.3s, transform 0.3s;
+  max-width: 70%;
+  padding: 10px;
+  margin: 5px 0;
+  border-radius: 10px;
+  word-wrap: break-word;
+  color: #213555;
 }
 
-.message-item:hover {
-  background-color: #cdeefb;
-  transform: translateX(5px);
+.message-item.self {
+  align-self: flex-end;
+  background-color: #3E5879;
+  color: #F5EFE7;
+}
+
+.message-item.others {
+  align-self: flex-start;
+  background-color: #D8C4B6;
 }
 
 .no-messages {
   text-align: center;
-  color: #95a5a6;
-  font-style: italic;
+  color: #213555;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.send-section {
+  display: flex;
+  align-items: center;
 }
 
-@keyframes slideDown {
-  from { transform: translateY(-20px); }
-  to { transform: translateY(0); }
+.send-section textarea {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #3E5879;
+  border-radius: 5px;
+  resize: none;
+  height: 60px;
+  color: #213555;
 }
 
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.5s;
-}
-
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
+.send-section button {
+  margin-left: 10px;
+  background-color: #3E5879;
+  color: #F5EFE7;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
 }
 </style>
