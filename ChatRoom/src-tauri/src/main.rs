@@ -17,6 +17,7 @@ use mysql::{Pool, PooledConn, params};
 
 struct AppState {
     local_port: Mutex<u16>,
+    file_receive_port: Mutex<u16> // 文件接收端口
 }
 
 #[derive(Serialize, Deserialize)]
@@ -35,6 +36,21 @@ struct ChatMessage {
     username: String,
     content: String,
 }
+
+#[derive(Serialize, Deserialize, Clone)]
+struct FileMeta {
+    filename: String,
+    total_size: u64,
+    chunk_size: usize,
+    total_chunks: u64,
+}
+
+#[derive(Serialize, Deserialize)]
+struct FileChunk {
+    sequence_number: u64,
+    data: Vec<u8>,
+}
+
 
 fn query_map_mysql(mut conn: PooledConn) -> Vec<User> {
     match conn.query_map(
@@ -89,17 +105,17 @@ fn insert_mysql(mut conn: PooledConn, user_name: &str, user_password: &str) {
 // find_in_mysql("root", "{密码}", "127.0.0.1", "3306", "testscheme", "abc", "123");
 #[tauri::command]
 fn find_in_mysql(
-    mysqlname: &str, 
-    mysqlpassword: &str, 
+    mysqlname: &str,
+    mysqlpassword: &str,
     mysqlhost: &str,
-    mysqlport: &str, 
+    mysqlport: &str,
     mysqldb: &str,
-    username: &str, 
+    username: &str,
     password: &str
 ) -> Result<bool, String> {
     // 连接到 MySQL 数据库
     let mysqlurl = format!("mysql://{}:{}@{}:{}/{}", mysqlname, mysqlpassword, mysqlhost, mysqlport, mysqldb);
-    let pool = Pool::new(mysqlurl.as_str()).map_err(|e| e.to_string())?; 
+    let pool = Pool::new(mysqlurl.as_str()).map_err(|e| e.to_string())?;
     let conn = pool.get_conn().map_err(|e| e.to_string())?;
     let rows = query_map_mysql(conn);
 
@@ -114,16 +130,16 @@ fn find_in_mysql(
 // createuser_in_mysql("root", "{密码}", "127.0.0.1", "3306", "testdatabase", "abcd", "1243");
 #[tauri::command]
 fn createuser_in_mysql(
-    mysqlname: &str, 
-    mysqlpassword: &str, 
-    mysqlhost: &str, 
-    mysqlport: &str, 
-    mysqldb: &str, 
-    username: &str,  
+    mysqlname: &str,
+    mysqlpassword: &str,
+    mysqlhost: &str,
+    mysqlport: &str,
+    mysqldb: &str,
+    username: &str,
     password: &str
 ) -> Result<(), String> {
     let mysqlurl = format!("mysql://{}:{}@{}:{}/{}", mysqlname, mysqlpassword, mysqlhost, mysqlport, mysqldb);
-    let pool = Pool::new(mysqlurl.as_str()).map_err(|e| e.to_string())?; 
+    let pool = Pool::new(mysqlurl.as_str()).map_err(|e| e.to_string())?;
     let conn = pool.get_conn().map_err(|e| e.to_string())?;
     insert_mysql(conn, username, password);
     Ok(())
@@ -217,19 +233,172 @@ fn set_local_port_savedfile(new_port: u16) -> Result<(), String> {
     Ok(())
 }
 
+// 设置文件线程端口 避免和消息线程冲突
+#[tauri::command]
+fn set_file_receive_port(port: u16, state: State<AppState>) -> Result<(), String> {
+    let mut file_receive_port = state.file_receive_port.lock().map_err(|e| e.to_string())?;
+    *file_receive_port = port;
+    Ok(())
+}
+
+#[tauri::command]
+fn get_file_receive_port(state: State<AppState>) -> Result<u16, String> {
+    let file_receive_port = state.file_receive_port.lock().map_err(|e| e.to_string())?;
+    Ok(*file_receive_port)
+}
+
+
+#[tauri::command]
+fn send_file(
+    file_path: String,
+    target: String,
+    port: u16,
+) -> Result<(), String> {
+    println!("开始发送文件: {}, 目标: {}, 端口: {}", file_path, target, port);
+
+    // 创建 UDP 套接字
+    let socket = UdpSocket::bind("0.0.0.0:0").map_err(|e| {
+        let err_msg = format!("无法绑定 UDP 套接字: {}", e);
+        println!("{}", err_msg);
+        err_msg
+    })?;
+    let target_addr = format!("{}:{}", target, port);
+
+    // 打开文件
+    let mut file = File::open(&file_path).map_err(|e| {
+        let err_msg = format!("无法打开文件 {}: {}", file_path, e);
+        println!("{}", err_msg);
+        err_msg
+    })?;
+    let metadata = file.metadata().map_err(|e| {
+        let err_msg = format!("无法获取文件元信息 {}: {}", file_path, e);
+        println!("{}", err_msg);
+        err_msg
+    })?;
+    let total_size = metadata.len();
+    let chunk_size = 1024;
+    let total_chunks = (total_size + chunk_size as u64 - 1) / chunk_size as u64;
+
+    println!(
+        "文件元信息: 文件名: {}, 总大小: {}, 每块大小: {}, 总块数: {}",
+        file_path, total_size, chunk_size, total_chunks
+    );
+
+    // 发送文件元信息
+    let meta = FileMeta {
+        filename: file_path.clone(),
+        total_size,
+        chunk_size,
+        total_chunks,
+    };
+    let serialized_meta = serde_json::to_string(&meta).map_err(|e| {
+        let err_msg = format!("无法序列化文件元信息: {}", e);
+        println!("{}", err_msg);
+        err_msg
+    })?;
+    socket.send_to(serialized_meta.as_bytes(), &target_addr).map_err(|e| {
+        let err_msg = format!("发送文件元信息失败: {}", e);
+        println!("{}", err_msg);
+        err_msg
+    })?;
+    println!("文件元信息已发送: {}", serialized_meta);
+
+    // 逐块发送文件
+    let mut buffer = vec![0u8; chunk_size];
+    for sequence_number in 0..total_chunks {
+        let bytes_read = file.read(&mut buffer).map_err(|e| {
+            let err_msg = format!("读取文件块失败: 序号: {}/{}，错误: {}", sequence_number + 1, total_chunks, e);
+            println!("{}", err_msg);
+            err_msg
+        })?;
+
+        let chunk = FileChunk {
+            sequence_number,
+            data: buffer[..bytes_read].to_vec(),
+        };
+        let serialized_chunk = serde_json::to_string(&chunk).map_err(|e| {
+            let err_msg = format!("无法序列化文件块: 序号: {}/{}，错误: {}", sequence_number + 1, total_chunks, e);
+            println!("{}", err_msg);
+            err_msg
+        })?;
+        socket.send_to(serialized_chunk.as_bytes(), &target_addr).map_err(|e| {
+            let err_msg = format!("发送文件块失败: 序号: {}/{}，错误: {}", sequence_number + 1, total_chunks, e);
+            println!("{}", err_msg);
+            err_msg
+        })?;
+        println!("文件块已发送: 序号: {}/{}, 大小: {} 字节", sequence_number + 1, total_chunks, bytes_read);
+
+        // TODO: 在这里实现 ACK 机制
+    }
+
+    println!("文件发送完成: 文件名: {}", file_path);
+    Ok(())
+}
+
+
+
+
+fn receive_file_nonblocking(socket: &UdpSocket) -> Result<(), std::io::Error> {
+    let mut buf = [0; 2048];
+    let mut file_meta: Option<FileMeta> = None;
+    let mut received_chunks = std::collections::HashMap::new();
+
+    match socket.recv_from(&mut buf) {
+        Ok((amt, src)) => {
+            let msg = std::str::from_utf8(&buf[..amt]).map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid UTF-8"))?;
+            if let Some(meta) = &file_meta {
+                // 接收文件块
+                if let Ok(chunk) = serde_json::from_str::<FileChunk>(msg) {
+                    received_chunks.insert(chunk.sequence_number, chunk.data);
+                    println!("接收到文件块: 序号: {}/{}, 来源: {}", chunk.sequence_number + 1, meta.total_chunks, src);
+
+                    // 发送 ACK
+                    socket.send_to(&chunk.sequence_number.to_le_bytes(), &src)?;
+
+                    // 判断是否完成
+                    if received_chunks.len() as u64 == meta.total_chunks {
+                        println!("文件接收完成: 文件名: {}", meta.filename);
+                        let mut file = File::create(&meta.filename)?;
+                        for seq in 0..meta.total_chunks {
+                            if let Some(data) = received_chunks.get(&seq) {
+                                file.write_all(data)?;
+                            }
+                        }
+                        return Ok(()); // 文件接收完成
+                    }
+                }
+            } else if let Ok(meta) = serde_json::from_str::<FileMeta>(msg) {
+                // 接收文件元信息
+                file_meta = Some(meta.clone());
+                println!("接收到文件元信息: 文件名: {}, 总大小: {}, 总块数: {}", meta.filename, meta.total_size, meta.total_chunks);
+            }
+        }
+        Err(e) => return Err(e),
+    }
+
+    Ok(())
+}
+
+
+
 fn main() {
     tauri::Builder::default()
         .manage(AppState {
             local_port: Mutex::new(8080),
+            file_receive_port: Mutex::new(8081), // 初始化文件接收端口
         })
         .invoke_handler(tauri::generate_handler![
-            send_message, 
-            set_local_port, 
+            send_message,
+            set_local_port,
             get_local_port,
             find_in_mysql,
-            createuser_in_mysql
+            createuser_in_mysql,
+            send_file,
+            set_file_receive_port,
+            get_file_receive_port
         ])
         .setup(|app| {
+            println!("启动！");
             let state = app.state::<AppState>();
             let app_handle = app.handle().clone();
 
@@ -259,7 +428,44 @@ fn main() {
                     }
                 }
             });
-            
+
+            // 初始化文件接收端口
+            let mut file_receive_port = state.file_receive_port.lock().unwrap();
+            *file_receive_port = 8081; // 默认端口
+            drop(file_receive_port);
+
+             // 启动文件接收线程
+            let file_receive_port = {
+                let port = state.file_receive_port.lock().unwrap();
+                *port
+            };
+
+            thread::spawn(move || {
+                let socket = UdpSocket::bind(format!("0.0.0.0:{}", file_receive_port))
+                    .expect("Failed to bind file receive socket");
+                socket
+                    .set_nonblocking(true)
+                    .expect("Failed to set socket to non-blocking mode");
+                println!("文件接收线程已启动，监听端口: {}", file_receive_port);
+
+                loop {
+                    match receive_file_nonblocking(&socket) {
+                        Ok(_) => {}
+                        Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                            // 没有数据到达，继续循环
+                            std::thread::sleep(std::time::Duration::from_millis(100));
+                        }
+                        Err(e) => {
+                            println!("文件接收失败: {}", e);
+                            break;
+                        }
+                    }
+                }
+            });
+
+
+
+
             Ok(())
         })
         .run(tauri::generate_context!())

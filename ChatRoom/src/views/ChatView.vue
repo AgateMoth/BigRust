@@ -1,7 +1,7 @@
 <template>
   <div class="container">
     <h1 class="title">聊天室</h1>
-    
+
     <div class="chat-layout">
       <!-- 配置设置区域 -->
       <div class="config-dropdown">
@@ -16,7 +16,7 @@
               </div>
               <p class="current-port">当前监听端口: {{ currentPort }}</p>
             </div>
-            
+
             <div class="config-section">
               <div class="config-group">
                 <label for="target">目标地址:</label>
@@ -30,7 +30,7 @@
           </div>
         </transition>
       </div>
-      
+
       <!-- 收到的消息区域 -->
       <div class="messages-section">
         <div v-if="receivedMessages.length" class="messages-list">
@@ -39,24 +39,34 @@
               <div
                 v-for="(msg, index) in receivedMessages"
                 :key="index"
-                :class="['message-item',msg.username === store.username ? 'self' : 'others']"
+                :class="['message-item', msg.username === store.username ? 'self' : 'others']"
               >
-                <strong>{{ msg.username }}:</strong> {{ msg.content }}
+                <strong>{{ msg.username }}:</strong>
+                <span v-if="msg.content">{{ msg.content }}</span>
+                <span v-else-if="msg.fileName">📄 文件: {{ msg.fileName }}</span>
               </div>
             </div>
           </transition-group>
         </div>
         <div v-else class="no-messages">没有收到消息</div>
       </div>
-      
+
       <!-- 发送消息区域 -->
       <div class="send-section">
         <textarea v-model="message" placeholder="输入消息..."></textarea>
-        <button @click="send">发送</button>
+        <button @click="send">发送消息</button>
+
+        <!-- 文件发送区域 -->
+        <input type="file" @change="handleFileChange" style="display: none;" ref="fileInput" />
+        <button @click="openFilePicker">选择文件</button>
+        <span v-if="selectedFile">已选文件: {{ selectedFile.name }}</span>
+        <button @click="sendFile" :disabled="!selectedFile">发送文件</button>
+
       </div>
     </div>
   </div>
 </template>
+
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
@@ -66,9 +76,11 @@ import { store } from '../utils/store';
 import { ElMessage } from 'element-plus';
 import 'element-plus/dist/index.css';
 
+
 interface ReceivedMessage {
   username: string;
-  content: string;
+  content?: string;
+  fileName?: string;
 }
 
 const showConfig = ref(false);
@@ -78,6 +90,7 @@ const message = ref('');
 const receivedMessages = ref<ReceivedMessage[]>([]);
 const localPort = ref(8080);
 const currentPort = ref(8080);
+const fileInput = ref<HTMLInputElement | null>(null);
 
 // 切换配置菜单显示
 const toggleConfig = () => {
@@ -107,16 +120,15 @@ const setLocalPort = async () => {
 const send = async () => {
   if (target.value && port.value && message.value) {
     try {
-      await invoke('send_message', { 
-        username: store.username, // 发送用户名
-        message: message.value, 
-        target: target.value, 
-        port: port.value 
+      await invoke('send_message', {
+        username: store.username,
+        message: message.value,
+        target: target.value,
+        port: port.value,
       });
-      // 显示自己发送的消息
       receivedMessages.value.push({
         username: store.username,
-        content: message.value
+        content: message.value,
       });
       message.value = '';
     } catch (error) {
@@ -127,6 +139,74 @@ const send = async () => {
       message: '请在配置中填写所有信息或没有任何消息',
       type: 'warning',
     });
+  }
+};
+
+// 文件发送功能
+const selectedFile = ref<File | null>(null);
+const handleFileChange = (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  if (input.files && input.files[0]) {
+    selectedFile.value = input.files[0];
+    ElMessage({
+      message: `已选择文件: ${selectedFile.value.name}`,
+      type: 'info',
+    });
+  }
+};
+
+const sendFile = async () => {
+  if (!selectedFile.value) {
+    ElMessage({
+      message: '未选择文件，请先选择文件。',
+      type: 'warning',
+    });
+    return;
+  }
+
+  try {
+    const file = selectedFile.value;
+    const fileName = file.name;
+
+    // 生成文件下载链接
+    const fileUrl = URL.createObjectURL(file);
+
+    // 触发下载
+    const a = document.createElement('a');
+    a.href = fileUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    ElMessage({
+      message: `文件 ${fileName} 发送成功！`,
+      type: 'success',
+    });
+
+    receivedMessages.value.push({
+      username: store.username,
+      fileName,
+    });
+
+    selectedFile.value = null; // 清空文件选择
+  } catch (error) {
+    ElMessage({
+      message: '文件发送失败：' + error,
+      type: 'error',
+    });
+    ElMessage({
+      message: '文件发送失败，请检查网络或后端服务。',
+      type: 'error',
+    });
+  }
+};
+
+
+
+const openFilePicker = () => {
+  if (fileInput.value) {
+    fileInput.value.click();
   }
 };
 
@@ -157,10 +237,11 @@ onMounted(() => {
 });
 </script>
 
+
 <style scoped>
 .container {
   height: 96vh;
-  overflow: hidden; 
+  overflow: hidden;
   background-color: #F5EFE7;
   display: flex;
   flex-direction: column;
@@ -186,7 +267,7 @@ onMounted(() => {
   border-radius: 10px;
   padding: 20px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  overflow: hidden; 
+  overflow: hidden;
 }
 
 .config-dropdown {
