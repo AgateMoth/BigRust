@@ -25,6 +25,9 @@ import { useRouter } from 'vue-router';
 import { ref } from 'vue';
 import { store } from '../utils/store';
 
+// 导航到聊天室
+const router = useRouter();
+
 // 定义一个类型以确保 animatedSections 的结构
 type SectionKeys = 'welcome' | 'actions' | 'info';
 
@@ -44,14 +47,12 @@ function resetSection(section: SectionKeys) {
 
 // 导航到聊天室
 const navigateToChat = () => {
-  const router = useRouter();
   router.push('/chat');
 };
 
 // 用户登出
 const logout = () => {
   store.username = ''; // 清空用户名
-  const router = useRouter();
   router.push('/'); // 跳转到登录/注册页面
 };
 </script>
