@@ -30,7 +30,8 @@
 import { invoke } from '@tauri-apps/api/core';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { store,mysql } from '../utils/store';
+import { store } from '../utils/store';
+import { mysql } from '../utils/mysql_store';
 import { ElMessage } from 'element-plus';
 import 'element-plus/dist/index.css';
 
